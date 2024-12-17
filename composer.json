@@ -1,0 +1,26 @@
+{
+    "name": "markhuot/etl",
+    "type": "library",
+    "authors": [
+        {
+            "name": "markhuot",
+            "email": "mark@markhuot.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "markhuot\\etl\\": "./src"
+        }
+    },
+    "require-dev": {
+        "pestphp/pest": "^3.5"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "require": {
+        "illuminate/collections": "^9"
+    }
+}
