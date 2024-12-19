@@ -110,7 +110,7 @@ class Voyage
                 $destinationFrame = $this->destination->prepareFrame($sourceFrame);
 
                 if ($this->transform($sourceFrame, $destinationFrame, $phase)) {
-                    if (! empty($destinationFrame->destinationKey) && $destinationFrame->matchesChecksum()) {
+                    if (! empty($destinationFrame->destinationKey) && empty($destinationFrame->lastError) && $destinationFrame->matchesChecksum()) {
                         $this->stream->info('  ⇢ Skipping frame [' . $sourceFrame->collection . ':' . $sourceFrame->sourceKey . '] with no changes', 'vvv');
                     }
                     else {

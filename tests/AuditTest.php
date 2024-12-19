@@ -23,7 +23,7 @@ it('skips transforms on audits', function () {
     expect($result->etl->getAuditor()->getStatusForKey(DefaultPhase::class, 'default', 0))
         ->sourceKey->not->toBeNull()
         ->lastImport->toBeNull();
-    expect($result->etl->getAuditor()->getImportStats()['default'])->toBe([0, 3]);
+    expect($result->etl->getAuditor()->getImportStats()[DefaultPhase::class]['default'])->toBe([0, 3]);
 });
 
 it('audits sources', function () {
@@ -35,7 +35,7 @@ it('audits sources', function () {
 
     expect($result->etl->getAuditor())
         ->getStatusForKey(DefaultPhase::class, 'default', 0)->lastImport->not->toBeNull()
-        ->getImportStats()->default->toBe([1,1]);
+        ->getImportStats()->{DefaultPhase::class}->default->toBe([1,1]);
 });
 
 it('uses collections', function () {
@@ -59,7 +59,7 @@ it('uses collections', function () {
         })
         ->start();
 
-    expect($voyage->getAuditor()->getImportStats())
+    expect($voyage->getAuditor()->getImportStats()[DefaultPhase::class])
         ->foo->toBe([1,1])
         ->bar->toBe([0,1])
         ->baz->toBe([1,1]);

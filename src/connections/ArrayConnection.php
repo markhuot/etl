@@ -39,11 +39,14 @@ class ArrayConnection extends Connection implements SourceConnectionInterface, D
     {
         if ($frame->sourceKey) {
             $this->array[$frame->sourceKey] = $frame->data;
+            $destinationKey = $frame->sourceKey;
         }
         else {
             $this->array[] = $frame->data;
+            $destinationKey = count($this->array) - 1;
         }
 
+        $frame->destinationKey = $destinationKey;
         $frame->lastError = null;
         $frame->lastImport = new \DateTime();
 

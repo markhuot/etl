@@ -3,6 +3,7 @@
 use markhuot\etl\base\Frame;
 use markhuot\etl\base\Transformer;
 use markhuot\etl\connections\ArrayConnection;
+use markhuot\etl\phases\DefaultPhase;
 
 it('throws exceptions in devMode', function () {
     $this->expectExceptionObject(new RuntimeException('A transformer error'));
@@ -31,5 +32,5 @@ it('skips errors in production', function () {
         })
         ->start();
 
-    expect($voyage->getAuditor()->getImportStats())->default->toBe([0,1]);
+    expect($voyage->getAuditor()->getImportStats())->{DefaultPhase::class}->default->toBe([0,1]);
 });

@@ -5,6 +5,7 @@ namespace markhuot\etl\auditors;
 use DateTime;
 use markhuot\etl\base\AuditorInterface;
 use markhuot\etl\base\Frame;
+use markhuot\etl\phases\DefaultPhase;
 use PDO;
 use stdClass;
 use Throwable;
@@ -34,6 +35,10 @@ class Sqlite implements AuditorInterface
         $this->db()->prepare('INSERT OR IGNORE INTO keys (phase, collection, sourceKey)VALUES'.implode(',', array_fill(0, count($frames), '(?,?,?)')))
             ->execute(array_merge(...array_map(fn ($frame) => [$frame->phase, $frame->collection, $frame->sourceKey], $frames)));
 
+        // Copy over destination keys from the default phase to any higher phases
+        $this->db()->prepare('UPDATE keys SET destinationKey=(SELECT innerKeys."destinationKey" FROM keys AS innerKeys WHERE innerKeys.phase=? AND innerKeys.collection=keys.collection AND innerKeys.sourceKey=keys.sourceKey) WHERE destinationKey is null AND phase != ?')
+            ->execute([DefaultPhase::class, DefaultPhase::class]);
+
         $keyedFrames = [];
         foreach ($frames as $frame) {
             $keyedFrames[$frame->phase.$frame->collection.$frame->sourceKey] = $frame;
@@ -41,7 +46,6 @@ class Sqlite implements AuditorInterface
 
         $statement = $this->db()->prepare('SELECT * FROM keys WHERE (phase, collection, sourceKey) IN (' . implode(',', array_fill(0, count($frames), '(?,?,?)')) . ')');
         $statement->execute(array_merge(...array_map(fn ($frame) => [$frame->phase, $frame->collection, $frame->sourceKey], $frames)));
-
         $result = $statement->fetchAll(PDO::FETCH_OBJ);
 
         foreach ($result as $row) {
@@ -105,14 +109,14 @@ class Sqlite implements AuditorInterface
         $statement->execute();
         $totals = $statement->fetchAll(PDO::FETCH_OBJ);
         foreach ($totals as $row) {
-            $stats[$row->collection] = [0, $row->count];
+            $stats[$row->phase][$row->collection] = [0, $row->count];
         }
 
         $statement = $this->db()->prepare('SELECT phase, collection, count(*) AS count FROM keys WHERE lastImport IS NOT NULL GROUP BY phase, collection');
         $statement->execute();
         $complete = $statement->fetchAll(PDO::FETCH_OBJ);
         foreach ($complete as $row) {
-            $stats[$row->collection][0] = $row->count;
+            $stats[$row->phase][$row->collection][0] = $row->count;
         }
 
         return $stats;
