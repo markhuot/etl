@@ -4,6 +4,9 @@ namespace markhuot\etl\connections;
 
 abstract class Connection
 {
+    /**
+     * @var array<string, array<callable>>
+     */
     protected array $listeners = [];
 
     public function on(string $event, callable $listener): static
@@ -13,7 +16,7 @@ abstract class Connection
         return $this;
     }
 
-    public function trigger(string $event, ...$args): void
+    public function trigger(string $event, mixed ...$args): void
     {
         $listeners = $this->listeners[$event] ?? [];
 

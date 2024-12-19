@@ -1,3 +1,4 @@
 /vendor
 /audit.sqlite
 /composer.lock
+/.idea

@@ -8,8 +8,15 @@ use markhuot\etl\base\Frame;
 abstract class BufferingConnection extends Connection implements DestinationConnectionInterface
 {
     protected int $batchSize = 100;
+
+    /**
+     * @var array<Frame<mixed>>
+     */
     protected array $frameBuffer = [];
 
+    /**
+     * @param Frame<mixed> $frame
+     */
     public function upsertFrame(Frame $frame): void
     {
         $this->frameBuffer[] = $frame;

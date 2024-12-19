@@ -9,7 +9,7 @@ use markhuot\etl\phases\DefaultPhase;
 use markhuot\etl\transformers\CopyTransformer;
 
 it('skips transforms on audits', function () {
-    $result = \etl()
+    ($voyage = \etl())
         ->from(new ArrayConnection(['a', 'b', 'c']))
         ->to($destination = new ArrayConnection)
         ->addTransformer(new class extends Transformer {
@@ -20,20 +20,20 @@ it('skips transforms on audits', function () {
         ->start(auditOnly: true);
 
     expect($destination)->array->toHaveCount(0);
-    expect($result->etl->getAuditor()->getStatusForKey(DefaultPhase::class, 'default', 0))
+    expect($voyage->getAuditor()->getStatusForKey(DefaultPhase::class, 'default', 0))
         ->sourceKey->not->toBeNull()
         ->lastImport->toBeNull();
-    expect($result->etl->getAuditor()->getImportStats()[DefaultPhase::class]['default'])->toBe([0, 3]);
+    expect($voyage->getAuditor()->getImportStats()[DefaultPhase::class]['default'])->toBe([0, 3]);
 });
 
 it('audits sources', function () {
-    $result = \etl()
+    ($voyage = \etl())
         ->from(new ArrayConnection([1]))
         ->to(new ArrayConnection)
         ->addTransformer(new CopyTransformer)
         ->start();
 
-    expect($result->etl->getAuditor())
+    expect($voyage->getAuditor())
         ->getStatusForKey(DefaultPhase::class, 'default', 0)->lastImport->not->toBeNull()
         ->getImportStats()->{DefaultPhase::class}->default->toBe([1,1]);
 });
@@ -50,7 +50,7 @@ it('uses collections', function () {
         ->to(new ArrayConnection)
         ->addTransformer(new class extends CopyTransformer {
             public function transform(Frame $source, Frame $destination): void {
-                if ($source->sourceKey === '2') {
+                if ($source->sourceKey === 2) {
                     throw new RuntimeException('Transform error');
                 }
 

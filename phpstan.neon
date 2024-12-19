@@ -1,0 +1,7 @@
+includes:
+
+parameters:
+    paths:
+        - src
+    level: max
+    scanFiles:

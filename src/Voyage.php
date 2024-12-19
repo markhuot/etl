@@ -2,15 +2,11 @@
 
 namespace markhuot\etl;
 
-use markhuot\etl\auditors\Sqlite;
 use markhuot\etl\base\AuditorInterface;
 use markhuot\etl\base\DestinationConnectionInterface;
 use markhuot\etl\base\SourceConnectionInterface;
 use markhuot\etl\base\Frame;
-use markhuot\etl\base\Result;
-use markhuot\etl\base\Transformer;
 use markhuot\etl\base\TransformerInterface;
-use markhuot\etl\exceptions\TransformerException;
 use markhuot\etl\output\PhpStreamWrapper;
 use markhuot\etl\output\StreamInterface;
 use markhuot\etl\phases\DefaultPhase;
@@ -26,10 +22,8 @@ class Voyage
         protected ?DestinationConnectionInterface $destination=null,
         protected ?AuditorInterface $auditor=null,
         protected bool $devMode = false,
-        protected ?Result $result=null,
         protected ?StreamInterface $stream=null,
     ) {
-        $this->result ??= new Result($this);
         $this->stream ??= new PhpStreamWrapper;
     }
 
@@ -47,7 +41,7 @@ class Voyage
         return $this;
     }
 
-    public function auditor(AuditorInterface $auditor)
+    public function auditor(AuditorInterface $auditor): Voyage
     {
         $this->auditor = $auditor;
 
@@ -75,23 +69,32 @@ class Voyage
         return $this;
     }
 
-    public function getAuditor(): AuditorInterface
+    public function getAuditor(): ?AuditorInterface
     {
         return $this->auditor;
     }
 
     public function start(
-        $auditOnly=false,
+        bool $auditOnly=false,
         string $phase=DefaultPhase::class,
-    ): Result {
+    ): void {
+        if (! $this->source) {
+            throw new \RuntimeException('A source must be set before `->start()`ing a voyage.');
+        }
+        if (! $this->destination) {
+            throw new \RuntimeException('A destination must be set before `->start()`ing a voyage.');
+        }
+
         $this->destination->on('upsert', function (array $frames) {
+            /** @var array<Frame<mixed>> $frames */
             $this->auditor?->trackFrames($frames);
-            $this->stream->info('Sent ' . count($frames) . ' frames to ' . get_class($this->destination));
+            $this->stream?->info('Sent ' . count($frames) . ' frames to ' . get_class($this->destination));
         });
-        $this->destination->on('error', function (array $frames, Throwable $e) {
-            $this->auditor->trackErrorForFrames($frames, $e);
-            $this->stream->error('Error sending frames to ' . get_class($this->destination) . ': ' . get_class($e) . ': ' . $e->getMessage());
-            $this->stream->error(json_encode($frames));
+        $this->destination->on('error', function (array $frames, Throwable $exception) {
+            /** @var array<Frame<mixed>> $frames */
+            $this->auditor?->trackErrorForFrames($frames, $exception);
+            $this->stream?->error('Error sending frames to ' . get_class($this->destination) . ': ' . get_class($exception) . ': ' . $exception->getMessage());
+            $this->stream?->error(json_encode($frames, JSON_THROW_ON_ERROR));
         });
 
         foreach ($this->source->walk() as $batch) {
@@ -105,29 +108,33 @@ class Voyage
                 continue;
             }
 
-            $this->stream->info('~ Transforming ' . count($batch) . ' frames');
+            $this->stream?->info('~ Transforming ' . count($batch) . ' frames');
             foreach ($batch as $sourceFrame) {
                 $destinationFrame = $this->destination->prepareFrame($sourceFrame);
 
                 if ($this->transform($sourceFrame, $destinationFrame, $phase)) {
                     if (! empty($destinationFrame->destinationKey) && empty($destinationFrame->lastError) && $destinationFrame->matchesChecksum()) {
-                        $this->stream->info('  ⇢ Skipping frame [' . $sourceFrame->collection . ':' . $sourceFrame->sourceKey . '] with no changes', 'vvv');
+                        $this->stream?->info('  ⇢ Skipping frame [' . $sourceFrame->collection . ':' . $sourceFrame->sourceKey . '] with no changes', 'vvv');
                     }
                     else {
-                        $this->stream->info('  ↑ Upserting frame [' . $sourceFrame->collection . ':' . $sourceFrame->sourceKey . ']', 'vvv');
+                        $this->stream?->info('  ↑ Upserting frame [' . $sourceFrame->collection . ':' . $sourceFrame->sourceKey . ']', 'vvv');
                         $this->destination->upsertFrame($destinationFrame);
                     }
                 }
             }
 
-            $this->stream->info('  Completed');
+            $this->stream?->info('  Completed');
         }
 
         $this->destination->close();
 
-        return $this->result;
+        $this->stream?->info('! Done');
     }
 
+    /**
+     * @param Frame<mixed> $source
+     * @param Frame<mixed> $destination
+     */
     public function transform(Frame $source, Frame $destination, string $phase): bool
     {
         try {
@@ -145,8 +152,7 @@ class Voyage
             return true;
         }
         catch (Throwable $throwable) {
-            $this->auditor->trackErrorForFrames([$destination], $throwable);
-            $this->result->errors[] = $throwable;
+            $this->auditor?->trackErrorForFrames([$destination], $throwable);
 
             if ($this->devMode) {
                 throw $throwable;

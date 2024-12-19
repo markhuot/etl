@@ -3,6 +3,7 @@
 namespace markhuot\etl\base;
 
 use DateTime;
+use http\Exception\RuntimeException;
 use markhuot\etl\phases\DefaultPhase;
 use Throwable;
 
@@ -18,8 +19,8 @@ class Frame
         public mixed $data,
         public string $phase=DefaultPhase::class,
         public string $collection='default',
-        public string|null $sourceKey=null,
-        public string|null $destinationKey=null,
+        public string|int|null $sourceKey=null,
+        public string|int|null $destinationKey=null,
         public string|null $checksum=null,
         public Throwable|null $exception=null,
         public DateTime|null $lastError=null,
@@ -27,6 +28,9 @@ class Frame
     ) {
     }
 
+    /**
+     * @return Frame<T>
+     */
     public function setData(mixed $data): self
     {
         $this->data = $data;
@@ -45,6 +49,11 @@ class Frame
 
     public function getDerivedChecksum(): string
     {
-        return md5(json_encode($this->data));
+        $json = json_encode($this->data);
+        if (! $json) {
+            throw new RuntimeException('Could not create json from frame data. Frame ' . $this->phase . ' ' . $this->collection . ' ' . $this->sourceKey);
+        }
+
+        return md5($json);
     }
 }

@@ -9,11 +9,17 @@ use markhuot\etl\base\Frame;
 
 class ArrayConnection extends Connection implements SourceConnectionInterface, DestinationConnectionInterface
 {
+    /**
+     * @param array<mixed> $array
+     */
     public function __construct(
         public array $array = [],
     ) {
     }
 
+    /**
+     * @return Generator<array<Frame<mixed>>>
+     */
     public function walk(): Generator
     {
         $frames = [];
@@ -30,11 +36,18 @@ class ArrayConnection extends Connection implements SourceConnectionInterface, D
         yield $frames;
     }
 
+    /**
+     * @param Frame<mixed> $frame
+     * @return Frame<mixed>
+     */
     public function prepareFrame(Frame $frame): Frame
     {
         return (clone $frame)->setData([]);
     }
 
+    /**
+     * @param Frame<mixed> $frame
+     */
     public function upsertFrame(Frame $frame): void
     {
         if ($frame->sourceKey) {
