@@ -15,6 +15,7 @@ class Frame
      */
     public function __construct(
         public mixed $data,
+        public string $phase='default',
         public string $collection='default',
         public string|null $sourceKey=null,
         public string|null $destinationKey=null,

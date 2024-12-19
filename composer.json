@@ -13,14 +13,12 @@
         }
     },
     "require-dev": {
-        "pestphp/pest": "^3.5"
+        "pestphp/pest": "^3.5",
+        "symfony/var-dumper": "^7.2"
     },
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true
         }
-    },
-    "require": {
-        "illuminate/collections": "^9"
     }
 }

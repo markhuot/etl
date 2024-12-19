@@ -6,8 +6,6 @@ use markhuot\etl\connections\ArrayConnection;
 use markhuot\etl\phases\RelationsPhase;
 use markhuot\etl\transformers\CopyTransformer;
 
-
-
 it('runs the default phase when unspecified', function () {
     etl()
         ->from(new ArrayConnection([1,2,3]))

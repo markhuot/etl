@@ -2,12 +2,12 @@
 
 namespace markhuot\etl\base;
 
-use markhuot\etl\Etl;
+use markhuot\etl\Voyage;
 
 class Result
 {
     public function __construct(
-        public Etl $etl,
+        public Voyage $etl,
         public array $errors = [],
     ) {
     }

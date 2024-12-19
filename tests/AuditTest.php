@@ -5,6 +5,7 @@ use markhuot\etl\base\Frame;
 use markhuot\etl\base\Transformer;
 use markhuot\etl\connections\ArrayConnection;
 use markhuot\etl\Etl;
+use markhuot\etl\phases\DefaultPhase;
 use markhuot\etl\transformers\CopyTransformer;
 
 it('skips transforms on audits', function () {
@@ -19,12 +20,10 @@ it('skips transforms on audits', function () {
         ->start(auditOnly: true);
 
     expect($destination)->array->toHaveCount(0);
-    expect($result->etl->auditor->getStatusForKey(0))
+    expect($result->etl->getAuditor()->getStatusForKey(DefaultPhase::class, 'default', 0))
         ->sourceKey->not->toBeNull()
         ->lastImport->toBeNull();
-    expect($result->etl->auditor->getTotals())
-        ->{'0'}->toBe(0)
-        ->{'1'}->toBe(3);
+    expect($result->etl->getAuditor()->getImportStats()['default'])->toBe([0, 3]);
 });
 
 it('audits sources', function () {
@@ -34,13 +33,13 @@ it('audits sources', function () {
         ->addTransformer(new CopyTransformer)
         ->start();
 
-    expect($result->etl->auditor)
-        ->getStatusForKey(0)->lastImport->not->toBeNull()
-        ->getTotals()->{'0'}->toBe(1);
+    expect($result->etl->getAuditor())
+        ->getStatusForKey(DefaultPhase::class, 'default', 0)->lastImport->not->toBeNull()
+        ->getImportStats()->default->toBe([1,1]);
 });
 
 it('uses collections', function () {
-    $result = \etl()
+    ($voyage = \etl())
         ->from(new class extends ArrayConnection {
             public function walk(): Generator {
                 yield [new Frame(data: 1, sourceKey: 1, collection: 'foo')];
@@ -60,21 +59,40 @@ it('uses collections', function () {
         })
         ->start();
 
-    expect($result->etl->auditor->getImportStats())
+    expect($voyage->getAuditor()->getImportStats())
         ->foo->toBe([1,1])
         ->bar->toBe([0,1])
         ->baz->toBe([1,1]);
 
-    expect($result->etl->auditor)
-        ->trackFrame(new Frame(1, sourceKey: 1, collection: 'foo'))->lastImport->not->toBeNull()
-        ->trackFrame(new Frame(2, sourceKey: 2, collection: 'bar'))->lastImport->toBeNull()
-        ->trackFrame(new Frame(3, sourceKey: 3, collection: 'baz'))->lastImport->not->toBeNull();
+    expect($voyage->getAuditor())
+        ->getStatusForKey(DefaultPhase::class, 'foo', 1)->lastImport->not->toBeNull()
+        ->getStatusForKey(DefaultPhase::class, 'bar', 2)->lastError->not->toBeNull()
+        ->getStatusForKey(DefaultPhase::class, 'baz', 3)->lastImport->not->toBeNull();
+});
+
+it('uses phases', function () {
+    ($voyage = \etl())
+        ->from(new class extends ArrayConnection {
+            public function walk(): Generator {
+                yield [new Frame(data: 1, sourceKey: 0, collection: 'foo')];
+            }
+        })
+        ->to(new ArrayConnection)
+        ->addTransformer(new CopyTransformer);
+
+    $voyage->start(phase: DefaultPhase::class);
+    $voyage->start(phase: \markhuot\etl\phases\RelationsPhase::class);
+
+
+    expect($voyage->getAuditor())
+        ->getStatusForKey(DefaultPhase::class, 'foo', 0)->lastImport->not->toBeNull()
+        ->getStatusForKey(\markhuot\etl\phases\RelationsPhase::class, 'foo', 0)->lastImport->not->toBeNull();
 });
 
 it('retains existing audit', function () {
-    $process = \etl()
+    $voyage = ($etl = \etl())
         ->from(new ArrayConnection([1, 2, 3]))
-        ->to($destination = new class extends ArrayConnection {
+        ->to(new class extends ArrayConnection {
             public function upsertFrame(Frame $frame): void {
                 $uuid = $frame->destinationKey ?? base64_encode(random_bytes(32));
                 $this->array[$uuid] = $frame->data;
@@ -85,19 +103,19 @@ it('retains existing audit', function () {
         })
         ->addTransformer(new CopyTransformer);
 
-    $result = $process->start();
-    $originalStatus = $result->etl->auditor->getStatusForKey(0);
+    $voyage->start();
+    $originalStatus = $etl->getAuditor()->getStatusForKey(DefaultPhase::class, 'default', 0);
     expect($originalStatus)->destinationKey->not->toBeNull();
 
-    $result = $process->start();
-    $repeatedStatus = $result->etl->auditor->getStatusForKey(0);
+    $voyage->start();
+    $repeatedStatus = $etl->getAuditor()->getStatusForKey(DefaultPhase::class, 'default', 0);
     expect($repeatedStatus)->destinationKey->toBe($originalStatus->destinationKey);
 });
 
 it('handles buffered destinations', function () {
-    $process = \etl()
+    ($voyage = \etl())
         ->from(new ArrayConnection([1, 2, 3]))
-        ->to($destination = new class extends \markhuot\etl\connections\BufferingConnection {
+        ->to(new class extends \markhuot\etl\connections\BufferingConnection {
             protected $array = [];
             public function prepareFrame(Frame $frame): Frame {
                 return (clone $frame)->setData([]);
@@ -112,11 +130,11 @@ it('handles buffered destinations', function () {
         })
         ->addTransformer(new CopyTransformer);
 
-    $result = $process->start();
-    $originalStatus = $result->etl->auditor->getStatusForKey(0);
+    $voyage->start();
+    $originalStatus = $voyage->getAuditor()->getStatusForKey(DefaultPhase::class, 'default', 0);
     expect($originalStatus)->destinationKey->not->toBeNull();
 
-    $result = $process->start();
-    $repeatedStatus = $result->etl->auditor->getStatusForKey(0);
+    $voyage->start();
+    $repeatedStatus = $voyage->getAuditor()->getStatusForKey(DefaultPhase::class, 'default', 0);
     expect($repeatedStatus)->destinationKey->toBe($originalStatus->destinationKey);
 });

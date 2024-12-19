@@ -26,9 +26,12 @@
 
 use markhuot\etl\auditors\Sqlite;
 use markhuot\etl\Etl;
+use markhuot\etl\output\MemoryStream;
 
 function etl() {
-    return new Etl(auditor: new Sqlite(path: ''));
+    return (new \markhuot\etl\Voyage())
+        ->auditor(new Sqlite(path: ''))
+        ->stream(new MemoryStream);
 }
 
 expect()->extend('toBeOne', function () {

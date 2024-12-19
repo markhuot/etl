@@ -16,7 +16,7 @@ use markhuot\etl\output\StreamInterface;
 use markhuot\etl\phases\DefaultPhase;
 use Throwable;
 
-class Etl
+class Voyage
 {
     /** @var array<TransformerInterface> */
     public array $transformers = [];
@@ -61,6 +61,13 @@ class Etl
         return $this;
     }
 
+    public function stream(StreamInterface $stream): self
+    {
+        $this->stream = $stream;
+
+        return $this;
+    }
+
     public function addTransformer(TransformerInterface $transformer): self
     {
         $this->transformers[] = $transformer;
@@ -88,26 +95,32 @@ class Etl
         });
 
         foreach ($this->source->walk() as $batch) {
+            foreach ($batch as $frame) {
+                $frame->phase = $phase;
+            }
+
             $this->auditor?->fetchFrames($batch);
 
             if ($auditOnly) {
                 continue;
             }
 
+            $this->stream->info('~ Transforming ' . count($batch) . ' frames');
             foreach ($batch as $sourceFrame) {
                 $destinationFrame = $this->destination->prepareFrame($sourceFrame);
 
                 if ($this->transform($sourceFrame, $destinationFrame, $phase)) {
-                    if ($destinationFrame->matchesChecksum()) {
-                        $this->stream->info('⇢ Skipping frame [' . $sourceFrame->collection . ':' . $sourceFrame->sourceKey . '] with no changes', 'vvv');
+                    if (! empty($destinationFrame->destinationKey) && $destinationFrame->matchesChecksum()) {
+                        $this->stream->info('  ⇢ Skipping frame [' . $sourceFrame->collection . ':' . $sourceFrame->sourceKey . '] with no changes', 'vvv');
                     }
                     else {
-                        $this->stream->info('↑ Upserting frame [' . $sourceFrame->collection . ':' . $sourceFrame->sourceKey . ']', 'vvv');
+                        $this->stream->info('  ↑ Upserting frame [' . $sourceFrame->collection . ':' . $sourceFrame->sourceKey . ']', 'vvv');
                         $this->destination->upsertFrame($destinationFrame);
                     }
                 }
             }
 
+            $this->stream->info('  Completed');
         }
 
         $this->destination->close();
@@ -132,7 +145,7 @@ class Etl
             return true;
         }
         catch (Throwable $throwable) {
-            $this->auditor->trackErrorForFrame($destination, $throwable);
+            $this->auditor->trackErrorForFrames([$destination], $throwable);
             $this->result->errors[] = $throwable;
 
             if ($this->devMode) {
