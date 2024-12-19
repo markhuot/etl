@@ -14,6 +14,7 @@ Voyage is an ETL tool that provides a simple but powerful interface to move mass
 possible. The core features that allow this include,
 
 - batching data on extraction and load to more efficiently use memory
+- multi-phase processing to avoid circular logic and simplify transformers
 - checksuming data on extraction to avoid no-op transactions on load
 - (coming soon) async transformations allowing for parallel processing of complex data
 - a complete auditing interface to track data flow and avoid repeat work
