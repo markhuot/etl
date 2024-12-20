@@ -36,4 +36,5 @@ jobs:
       run: ./vendor/bin/pest --parallel
 
     - name: Run PHPStan
+      if: success() || failure()
       run: ./vendor/bin/phpstan analyse
