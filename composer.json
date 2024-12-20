@@ -1,5 +1,7 @@
 {
     "name": "markhuot/etl",
+    "description": "A simple ETL library for PHP",
+    "license": "MIT",
     "type": "library",
     "authors": [
         {
