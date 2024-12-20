@@ -19,9 +19,6 @@ jobs:
       with:
         php-version: '8.3'
 
-    - name: Validate composer.json and composer.lock
-      run: composer validate --strict
-
     - name: Cache Composer packages
       id: composer-cache
       uses: actions/cache@v3
@@ -33,7 +30,7 @@ jobs:
 
     - name: Install dependencies
       if: steps.composer-cache.outputs.cache-hit != 'true'
-      run: composer install --prefer-dist --no-progress
+      run: composer validate --strict && composer install --prefer-dist --no-progress
 
     - name: Run test suite
       run: ./vendor/bin/pest --parallel
