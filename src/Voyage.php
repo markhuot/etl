@@ -11,6 +11,7 @@ use markhuot\etl\output\PhpStreamWrapper;
 use markhuot\etl\output\StreamInterface;
 use markhuot\etl\phases\DefaultPhase;
 use Throwable;
+use function markhuot\etl\helpers\throw_unless;
 
 class Voyage
 {
@@ -86,11 +87,15 @@ class Voyage
         }
 
         $this->destination->on('upsert', function (array $frames) {
+            throw_unless($this->destination, 'The destination must be set.');
+
             /** @var array<Frame<mixed>> $frames */
             $this->auditor?->trackFrames($frames);
             $this->stream?->info('Sent ' . count($frames) . ' frames to ' . get_class($this->destination));
         });
         $this->destination->on('error', function (array $frames, Throwable $exception) {
+            throw_unless($this->destination, 'The destination must be set.');
+
             /** @var array<Frame<mixed>> $frames */
             $this->auditor?->trackErrorForFrames($frames, $exception);
             $this->stream?->error('Error sending frames to ' . get_class($this->destination) . ': ' . get_class($exception) . ': ' . $exception->getMessage());

@@ -10,7 +10,10 @@
     "autoload": {
         "psr-4": {
             "markhuot\\etl\\": "./src"
-        }
+        },
+        "files": [
+            "src/helpers/exceptions.php"
+        ]
     },
     "require-dev": {
         "pestphp/pest": "^3.5",

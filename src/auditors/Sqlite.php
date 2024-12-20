@@ -25,6 +25,7 @@ class Sqlite implements AuditorInterface
         $statement = $this->db()->prepare('SELECT * from keys WHERE phase=? AND collection=? AND sourceKey=?');
         $statement->execute([$phase, $collection, $sourceKey]);
 
+        /** @var stdClass|false $result */
         $result = $statement->fetch(PDO::FETCH_OBJ);
 
         return $result ?: null;
@@ -46,6 +47,8 @@ class Sqlite implements AuditorInterface
 
         $statement = $this->db()->prepare('SELECT * FROM keys WHERE (phase, collection, sourceKey) IN (' . implode(',', array_fill(0, count($frames), '(?,?,?)')) . ')');
         $statement->execute(array_merge(...array_map(fn ($frame) => [$frame->phase, $frame->collection, $frame->sourceKey], $frames)));
+
+        /** @var array<object{phase: string, collection: string, sourceKey: string|int, checksum: ?string, destinationKey: ?string, lastError: ?string, lastImport: ?string}> $result */
         $result = $statement->fetchAll(PDO::FETCH_OBJ);
 
         foreach ($result as $row) {
@@ -57,7 +60,7 @@ class Sqlite implements AuditorInterface
     }
 
     /**
-     * @param array<Frame> $frames
+     * @param array<Frame<mixed>> $frames
      * @return void
      */
     public function trackFrames(array $frames): void
@@ -90,8 +93,8 @@ class Sqlite implements AuditorInterface
             $params[] = $frame->collection;
             $params[] = $frame->sourceKey;
             $params[] = $frame->destinationKey;
-            $params[] = $frame->lastError?->format('Y-m-d H:i:s');
-            $params[] = $frame->lastImport?->format('Y-m-d H:i:s');
+            $params[] = $frame->lastError->format('Y-m-d H:i:s');
+            $params[] = null;
         }
 
         $this->db()->prepare('INSERT OR IGNORE INTO keys (phase, collection, sourceKey)VALUES'.implode(',', array_fill(0, count($frames), '(?,?,?)')))
@@ -107,14 +110,20 @@ class Sqlite implements AuditorInterface
 
         $statement = $this->db()->prepare('SELECT phase, collection, count(*) AS count FROM keys GROUP BY phase, collection');
         $statement->execute();
+
+        /** @var array<object{phase: string, collection: string, count: int}> $totals */
         $totals = $statement->fetchAll(PDO::FETCH_OBJ);
+
         foreach ($totals as $row) {
             $stats[$row->phase][$row->collection] = [0, $row->count];
         }
 
         $statement = $this->db()->prepare('SELECT phase, collection, count(*) AS count FROM keys WHERE lastImport IS NOT NULL GROUP BY phase, collection');
         $statement->execute();
+
+        /** @var array<object{phase: string, collection: string, count: int}> $complete */
         $complete = $statement->fetchAll(PDO::FETCH_OBJ);
+
         foreach ($complete as $row) {
             $stats[$row->phase][$row->collection][0] = $row->count;
         }
@@ -122,7 +131,7 @@ class Sqlite implements AuditorInterface
         return $stats;
     }
 
-    protected function db()
+    protected function db(): PDO
     {
         if ($this->db) {
             return $this->db;

@@ -23,7 +23,7 @@ interface AuditorInterface
     public function trackErrorForFrames(array $frames, Throwable $throwable): void;
 
     /**
-     * @return array<string, array<string, int>>
+     * @return array<string, array<string, array{0: int, 1: int}>>
      */
     public function getImportStats(): array;
 
